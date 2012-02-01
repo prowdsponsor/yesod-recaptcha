@@ -6,7 +6,6 @@ module Yesod.ReCAPTCHA
     ) where
 
 import Control.Applicative
-import Control.Arrow (second)
 import Data.Typeable (Typeable)
 import Yesod.Widget (whamlet)
 import qualified Control.Exception.Lifted as E
@@ -70,30 +69,39 @@ recaptchaMForm :: YesodRecaptcha master =>
 recaptchaMForm = mform
     where
       mform = do
-        let fv1 = return ()
-            fv2 = recaptchaWidget
-        challengeField <- fakeField "recaptcha_challenge_field" fv1
-        responseField  <- fakeField "recaptcha_response_field"  fv2
+        challengeField <- fakeField "recaptcha_challenge_field"
+        responseField  <- fakeField "recaptcha_response_field"
         ret <- case (fst challengeField, fst responseField) of
-                 (YF.FormSuccess challenge, YF.FormSuccess response) -> do
-                   YC.lift $ check challenge response
-                   undefined
-                 _ -> return YF.FormMissing
-        return (ret, [snd challengeField, snd responseField])
+                 (YF.FormSuccess challenge, YF.FormSuccess response) ->
+                   YC.lift $ Just <$> check challenge response
+                 _ -> return Nothing
+        let view = recaptchaWidget $ case ret of
+                                       Just (Error err) -> Just err
+                                       _                -> Nothing
+            formRet = case ret of
+                        Nothing        -> YF.FormMissing
+                        Just Ok        -> YF.FormSuccess ()
+                        Just (Error _) -> YF.FormFailure []
+        return ( formRet
+               , [ snd challengeField
+                 , (snd responseField) { YF.fvInput = view } ])
 
 
 -- | Widget with reCAPTCHA's HTML.
-recaptchaWidget :: YesodRecaptcha master => YC.GWidget sub master ()
-recaptchaWidget = do
+recaptchaWidget :: YesodRecaptcha master =>
+                   Maybe T.Text -- ^ Error code, if any.
+                -> YC.GWidget sub master ()
+recaptchaWidget merr = do
   publicKey <- YC.lift recaptchaPublicKey
   isSecure  <- W.isSecure <$> YC.lift YC.waiRequest
   let proto | isSecure  = "https"
             | otherwise = "http" :: T.Text
+      err = maybe "" (T.append "&error=") merr
   [whamlet|
-    <script src="#{proto}://www.google.com/recaptcha/api/challenge?k=#{publicKey}">
+    <script src="#{proto}://www.google.com/recaptcha/api/challenge?k=#{publicKey}#{err}">
     </script>
     <noscript>
-       <iframe src="#{proto}://www.google.com/recaptcha/api/noscript?k=#{publicKey}"
+       <iframe src="#{proto}://www.google.com/recaptcha/api/noscript?k=#{publicKey}#{err}"
            height="300" width="500" frameborder="0"></iframe><br>
        <textarea name="recaptcha_challenge_field" rows="3" cols="40">
        </textarea>
@@ -165,15 +173,14 @@ data CheckRet = Ok | Error T.Text
 -- | A fake field.  Just returns the value of a field.
 fakeField :: (YC.RenderMessage master YF.FormMessage) =>
              T.Text                   -- ^ Field id.
-          -> YC.GWidget sub master () -- ^ Field view.
           -> YF.MForm sub master ( YF.FormResult T.Text
                                  , YF.FieldView sub master )
-fakeField fid view = clr <$> YF.mreq YF.textField fs Nothing
+fakeField fid = clr <$> YF.mreq YF.textField fs Nothing
     where
       fs = "" { YF.fsId = Just fid }
       clr (fr, fv) = (fr, fv { YF.fvLabel   = ""
                              , YF.fvTooltip = Nothing
-                             , YF.fvInput   = view })
+                             , YF.fvInput   = return () })
 
 
 -- | Define the given 'RecaptchaOptions' for all forms declared
