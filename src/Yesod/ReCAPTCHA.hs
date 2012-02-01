@@ -67,25 +67,28 @@ recaptchaAForm = YF.formToAForm recaptchaMForm
 recaptchaMForm :: YesodReCAPTCHA master =>
                   YF.MForm sub master ( YF.FormResult ()
                                       , [YF.FieldView sub master] )
-recaptchaMForm = mform
-    where
-      mform = do
-        challengeField <- fakeField "recaptcha_challenge_field"
-        responseField  <- fakeField "recaptcha_response_field"
-        ret <- case (fst challengeField, fst responseField) of
-                 (YF.FormSuccess challenge, YF.FormSuccess response) ->
-                   YC.lift $ Just <$> check challenge response
-                 _ -> return Nothing
-        let view = recaptchaWidget $ case ret of
-                                       Just (Error err) -> Just err
-                                       _                -> Nothing
-            formRet = case ret of
-                        Nothing        -> YF.FormMissing
-                        Just Ok        -> YF.FormSuccess ()
-                        Just (Error _) -> YF.FormFailure []
-        return ( formRet
-               , [ snd challengeField
-                 , (snd responseField) { YF.fvInput = view } ])
+recaptchaMForm = do
+  challengeField <- fakeField "recaptcha_challenge_field"
+  responseField  <- fakeField "recaptcha_response_field"
+  ret <- maybe (return Nothing)
+               (YC.lift . fmap Just . uncurry check)
+               ((,) <$> challengeField <*> responseField)
+  let view = recaptchaWidget $ case ret of
+                                 Just (Error err) -> Just err
+                                 _                -> Nothing
+      formRet = case ret of
+                  Nothing        -> YF.FormMissing
+                  Just Ok        -> YF.FormSuccess ()
+                  Just (Error _) -> YF.FormFailure []
+      formView = YF.FieldView
+                   { YF.fvLabel    = ""
+                   , YF.fvTooltip  = Nothing
+                   , YF.fvId       = "recaptcha_challenge_field"
+                   , YF.fvInput    = view
+                   , YF.fvErrors   = Nothing
+                   , YF.fvRequired = True
+                   }
+  return (formRet, [formView])
 
 
 -- | Widget with reCAPTCHA's HTML.
@@ -170,15 +173,12 @@ data CheckRet = Ok | Error T.Text
 
 -- | A fake field.  Just returns the value of a field.
 fakeField :: (YC.RenderMessage master YF.FormMessage) =>
-             T.Text                   -- ^ Field id.
-          -> YF.MForm sub master ( YF.FormResult T.Text
-                                 , YF.FieldView sub master )
-fakeField fid = clr <$> YF.mreq YF.textField fs Nothing
-    where
-      fs = "" { YF.fsId = Just fid }
-      clr (fr, fv) = (fr, fv { YF.fvLabel   = ""
-                             , YF.fvTooltip = Nothing
-                             , YF.fvInput   = return () })
+             T.Text -- ^ Field id.
+          -> YF.MForm sub master (Maybe T.Text)
+fakeField fid = YC.lift $ do mt1 <- YC.lookupGetParam fid
+                             case mt1 of
+                               Nothing -> YC.lookupPostParam fid
+                               Just _  -> return mt1
 
 
 -- | Define the given 'RecaptchaOptions' for all forms declared
