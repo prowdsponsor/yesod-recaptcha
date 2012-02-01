@@ -40,9 +40,10 @@ import qualified Yesod.Form.Types as YF
 -- >   recaptchaPrivateKey = return "[your private key]"
 --
 -- You may also write a more sophisticated instance.  For
--- example, you may give different keys depending on the request
--- (maybe you're serving to two different domains in the same
--- application).
+-- example, you may get these values from your @settings.yml@
+-- instead of hardcoding them. Or you may give different keys
+-- depending on the request (maybe you're serving to two
+-- different domains in the same application).
 --
 -- The 'YA.YesodAuth' superclass is used only for the HTTP
 -- request.  Please fill a bug report if you think that this
@@ -54,15 +55,15 @@ class YA.YesodAuth master => YesodReCAPTCHA master where
 
 -- | A reCAPTCHA field.  This 'YF.AForm' returns @()@ because
 -- CAPTCHAs give no useful information besides having being typed
--- correctly or not.  When the user does not pass the CAPTCHA,
--- this 'YF.AForm' will automatically the same way as any other
--- @yesod-form@ widget fails, so you may just ignore the @()@
--- value.
+-- correctly or not.  When the user does not type the CAPTCHA
+-- correctly, this 'YF.AForm' will automatically fail in the same
+-- way as any other @yesod-form@ widget fails, so you may just
+-- ignore the @()@ value.
 recaptchaAForm :: YesodReCAPTCHA master => YF.AForm sub master ()
 recaptchaAForm = YF.formToAForm recaptchaMForm
 
 
--- | Same as 'recaptchaAForm', but insteof being an
+-- | Same as 'recaptchaAForm', but instead of being an
 -- 'YF.AForm', it's an 'YF.MForm'.
 recaptchaMForm :: YesodReCAPTCHA master =>
                   YF.MForm sub master ( YF.FormResult ()
@@ -184,6 +185,9 @@ fakeField fid = YC.lift $ do mt1 <- YC.lookupGetParam fid
 -- | Define the given 'RecaptchaOptions' for all forms declared
 -- after this widget.  This widget may be used anywhere, on the
 -- @<head>@ or on the @<body>@.
+--
+-- Note that this is /not/ required to use 'recaptchaAForm' or
+-- 'recaptchaMForm'.
 recaptchaOptions :: YC.Yesod master =>
                     RecaptchaOptions
                  -> YC.GWidget sub master ()
