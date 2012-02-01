@@ -8,7 +8,7 @@ Author:              Felipe Lessa
 Maintainer:          felipe.lessa@gmail.com
 Category:            Web
 Build-type:          Simple
-Cabal-version:       >=1.2
+Cabal-version:       >=1.8
 -- Copyright:
 -- Extra-source-files:
 
@@ -16,6 +16,9 @@ Description:
   This package provides support for reCAPTCHA
   (<http://www.google.com/recaptcha>) on Yesod applications.
 
+Source-repository head
+  type:     git
+  location: git://github.com/meteficha/yesod-recaptcha.git
 
 Library
   Hs-source-dirs: src
