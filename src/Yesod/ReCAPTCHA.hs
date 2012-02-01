@@ -100,15 +100,12 @@ recaptchaWidget merr = do
       err = maybe "" (T.append "&error=") merr
   [whamlet|
     <script src="#{proto}://www.google.com/recaptcha/api/challenge?k=#{publicKey}#{err}">
-    </script>
     <noscript>
        <iframe src="#{proto}://www.google.com/recaptcha/api/noscript?k=#{publicKey}#{err}"
-           height="300" width="500" frameborder="0"></iframe><br>
+           height="300" width="500" frameborder="0">
+       <br>
        <textarea name="recaptcha_challenge_field" rows="3" cols="40">
-       </textarea>
-       <input type="hidden" name="recaptcha_response_field"
-           value="manual_challenge">
-    </noscript>
+       <input type="hidden" name="recaptcha_response_field" value="manual_challenge">
   |]
 
 
