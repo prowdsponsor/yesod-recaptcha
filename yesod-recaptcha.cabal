@@ -20,14 +20,16 @@ Description:
 Library
   Hs-source-dirs: src
   GHC-options: -Wall
-  Exposed-modules:
-    Yesod.ReCAPTCHA
+  Exposed-modules: Yesod.ReCAPTCHA
+  Extensions: DeriveDataTypeable FlexibleContexts TemplateHaskell
+              QuasiQuotes OverloadedStrings
   Build-depends:
-      base         == 4.*
+      base           == 4.*
     , text
-    , data-default == 0.3.*
-    , yesod-core   == 0.10.*
-    , yesod-auth   == 0.8.*
-    , yesod-form   == 0.4.*
-    , http-conduit == 1.2.*
-    , conduit      >= 0.1   && < 0.3
+    , data-default   == 0.3.*
+    , transformers
+    , yesod-core     == 0.10.*
+    , yesod-auth     == 0.8.*
+    , yesod-form     == 0.4.*
+    , http-conduit   == 1.2.*
+    , conduit        >= 0.1   && < 0.3
