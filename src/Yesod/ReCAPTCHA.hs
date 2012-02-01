@@ -1,5 +1,6 @@
 module Yesod.ReCAPTCHA
-    ( recaptchaAForm
+    ( YesodReCAPTCHA(..)
+    , recaptchaAForm
     , recaptchaMForm
     , recaptchaOptions
     , RecaptchaOptions(..)
@@ -34,7 +35,7 @@ import qualified Yesod.Form.Types as YF
 -- fairly easy to implement a barebones instance of this class
 -- for you foundation data type:
 --
--- > instance YesodRecaptcha MyType where
+-- > instance YesodReCAPTCHA MyType where
 -- >   recaptchaPublicKey  = return "[your public key]"
 -- >   recaptchaPrivateKey = return "[your private key]"
 --
@@ -45,8 +46,8 @@ import qualified Yesod.Form.Types as YF
 --
 -- The 'YA.YesodAuth' superclass is used only for the HTTP
 -- request.  Please fill a bug report if you think that this
--- @YesodRecaptcha@ may be useful without @YesodAuth@.
-class YA.YesodAuth master => YesodRecaptcha master where
+-- @YesodReCAPTCHA@ may be useful without @YesodAuth@.
+class YA.YesodAuth master => YesodReCAPTCHA master where
     recaptchaPublicKey  :: YC.GHandler sub master T.Text
     recaptchaPrivateKey :: YC.GHandler sub master T.Text
 
@@ -57,13 +58,13 @@ class YA.YesodAuth master => YesodRecaptcha master where
 -- this 'YF.AForm' will automatically the same way as any other
 -- @yesod-form@ widget fails, so you may just ignore the @()@
 -- value.
-recaptchaAForm :: YesodRecaptcha master => YF.AForm sub master ()
+recaptchaAForm :: YesodReCAPTCHA master => YF.AForm sub master ()
 recaptchaAForm = YF.formToAForm recaptchaMForm
 
 
 -- | Same as 'recaptchaAForm', but insteof being an
 -- 'YF.AForm', it's an 'YF.MForm'.
-recaptchaMForm :: YesodRecaptcha master =>
+recaptchaMForm :: YesodReCAPTCHA master =>
                   YF.MForm sub master ( YF.FormResult ()
                                       , [YF.FieldView sub master] )
 recaptchaMForm = mform
@@ -88,7 +89,7 @@ recaptchaMForm = mform
 
 
 -- | Widget with reCAPTCHA's HTML.
-recaptchaWidget :: YesodRecaptcha master =>
+recaptchaWidget :: YesodReCAPTCHA master =>
                    Maybe T.Text -- ^ Error code, if any.
                 -> YC.GWidget sub master ()
 recaptchaWidget merr = do
@@ -115,7 +116,7 @@ recaptchaWidget merr = do
 -- guessed the CAPTCHA.  Unfortunately, reCAPTCHA doesn't seem to
 -- provide an HTTPS endpoint for this API even though we need to
 -- send our private key.
-check :: YesodRecaptcha master =>
+check :: YesodReCAPTCHA master =>
          T.Text -- ^ @recaptcha_challenge_field@
       -> T.Text -- ^ @recaptcha_response_field@
       -> YC.GHandler sub master CheckRet
