@@ -9,11 +9,16 @@ import Control.Applicative
 import Control.Arrow (second)
 import Data.Typeable (Typeable)
 import Yesod.Widget (whamlet)
+import qualified Control.Exception.Lifted as E
 import qualified Data.ByteString.Char8 as B8
+import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.Conduit as C
 import qualified Data.Default as D
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
+import qualified Data.Text.Encoding.Error as TEE
+import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.Encoding as TLE
 import qualified Network.HTTP.Conduit as H
 import qualified Network.HTTP.Types as HT
 import qualified Network.Info as NI
@@ -105,10 +110,11 @@ recaptchaWidget = do
 check :: YesodRecaptcha master =>
          T.Text -- ^ @recaptcha_challenge_field@
       -> T.Text -- ^ @recaptcha_response_field@
-      -> YC.GHandler sub master ()
-check "" _ = return ()
-check _ "" = return ()
+      -> YC.GHandler sub master CheckRet
+check "" _ = return $ Error "invalid-request-cookie"
+check _ "" = return $ Error "incorrect-captcha-sol"
 check challenge response = do
+  manager    <- YA.authHttpManager <$> YC.getYesod
   privateKey <- recaptchaPrivateKey
   sockaddr   <- W.remoteHost <$> YC.waiRequest
   remoteip   <- case sockaddr of
@@ -132,7 +138,24 @@ check challenge response = do
               , ("challenge",  TE.encodeUtf8 challenge)
               , ("response",   TE.encodeUtf8 response)
               ]
-  undefined
+  eresp <- E.try $ C.runResourceT $ H.httpLbs req manager
+  case (L8.lines . H.responseBody) <$> eresp of
+    Right ("true":_)      -> return Ok
+    Right ("false":why:_) -> return . Error . TL.toStrict $
+                             TLE.decodeUtf8With TEE.lenientDecode why
+    Right other -> do
+      $(YC.logError) $ T.concat [ "Yesod.ReCAPTCHA: could not parse "
+                                , T.pack (show other) ]
+      return (Error "recaptcha-not-reachable")
+    Left exc -> do
+      $(YC.logError) $ T.concat [ "Yesod.ReCAPTCHA: could not contact server ("
+                                , T.pack (show (exc :: E.SomeException))
+                                , ")" ]
+      return (Error "recaptcha-not-reachable")
+
+
+-- | See 'check'.
+data CheckRet = Ok | Error T.Text
 
 
 -- | A fake field.  Just returns the value of a field.

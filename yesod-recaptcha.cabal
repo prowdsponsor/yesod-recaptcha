@@ -28,6 +28,7 @@ Library
     , bytestring
     , text
     , data-default   == 0.3.*
+    , lifted-base    == 0.1.*
     , yesod-core     == 0.10.*
     , yesod-auth     == 0.8.*
     , yesod-form     == 0.4.*
