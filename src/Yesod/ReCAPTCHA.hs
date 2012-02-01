@@ -9,10 +9,16 @@ import Control.Applicative
 import Control.Arrow (second)
 import Data.Typeable (Typeable)
 import Yesod.Widget (whamlet)
+import qualified Data.ByteString.Char8 as B8
 import qualified Data.Conduit as C
 import qualified Data.Default as D
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
 import qualified Network.HTTP.Conduit as H
+import qualified Network.HTTP.Types as HT
+import qualified Network.Info as NI
+import qualified Network.Socket as HS
+import qualified Network.Wai as W
 import qualified Yesod.Auth as YA
 import qualified Yesod.Core as YC
 import qualified Yesod.Form.Fields as YF
@@ -65,6 +71,7 @@ recaptchaMForm = mform
         responseField  <- fakeField "recaptcha_response_field"  fv2
         ret <- case (fst challengeField, fst responseField) of
                  (YF.FormSuccess challenge, YF.FormSuccess response) -> do
+                   YC.lift $ check challenge response
                    undefined
                  _ -> return YF.FormMissing
         return (ret, [snd challengeField, snd responseField])
@@ -74,11 +81,14 @@ recaptchaMForm = mform
 recaptchaWidget :: YesodRecaptcha master => YC.GWidget sub master ()
 recaptchaWidget = do
   publicKey <- YC.lift recaptchaPublicKey
+  isSecure  <- W.isSecure <$> YC.lift YC.waiRequest
+  let proto | isSecure  = "https"
+            | otherwise = "http" :: T.Text
   [whamlet|
-    <script src="http://www.google.com/recaptcha/api/challenge?k=#{publicKey}">
+    <script src="#{proto}://www.google.com/recaptcha/api/challenge?k=#{publicKey}">
     </script>
     <noscript>
-       <iframe src="http://www.google.com/recaptcha/api/noscript?k=#{publicKey}"
+       <iframe src="#{proto}://www.google.com/recaptcha/api/noscript?k=#{publicKey}"
            height="300" width="500" frameborder="0"></iframe><br>
        <textarea name="recaptcha_challenge_field" rows="3" cols="40">
        </textarea>
@@ -87,6 +97,42 @@ recaptchaWidget = do
     </noscript>
   |]
 
+
+-- | Contact reCAPTCHA servers and find out if the user correctly
+-- guessed the CAPTCHA.  Unfortunately, reCAPTCHA doesn't seem to
+-- provide an HTTPS endpoint for this API even though we need to
+-- send our private key.
+check :: YesodRecaptcha master =>
+         T.Text -- ^ @recaptcha_challenge_field@
+      -> T.Text -- ^ @recaptcha_response_field@
+      -> YC.GHandler sub master ()
+check "" _ = return ()
+check _ "" = return ()
+check challenge response = do
+  privateKey <- recaptchaPrivateKey
+  sockaddr   <- W.remoteHost <$> YC.waiRequest
+  remoteip   <- case sockaddr of
+                  HS.SockAddrInet _ hostAddr ->
+                    return $ show $ NI.IPv4 hostAddr
+                  HS.SockAddrInet6 _ _ (w1, w2, w3, w4) _ ->
+                    return $ show $ NI.IPv6 w1 w2 w3 w4
+                  HS.SockAddrUnix _ ->
+                    fail "Yesod.ReCAPTCHA: Couldn't find out remote IP, \
+                         \are you using a reverse proxy?  If yes, then \
+                         \please file a bug report at \
+                         \<https://github.com/meteficha/yesod-recaptcha>."
+  let req = H.def
+              { H.method      = HT.methodPost
+              , H.host        = "www.google.com"
+              , H.path        = "/recaptcha/api/verify"
+              , H.queryString = HT.renderSimpleQuery False query
+              }
+      query = [ ("privatekey", TE.encodeUtf8 privateKey)
+              , ("remoteip",   B8.pack       remoteip)
+              , ("challenge",  TE.encodeUtf8 challenge)
+              , ("response",   TE.encodeUtf8 response)
+              ]
+  undefined
 
 
 -- | A fake field.  Just returns the value of a field.

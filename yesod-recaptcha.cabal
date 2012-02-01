@@ -25,11 +25,15 @@ Library
               QuasiQuotes OverloadedStrings
   Build-depends:
       base           == 4.*
+    , bytestring
     , text
     , data-default   == 0.3.*
-    , transformers
     , yesod-core     == 0.10.*
     , yesod-auth     == 0.8.*
     , yesod-form     == 0.4.*
+    , wai
+    , network
+    , network-info   == 0.2.*
     , http-conduit   == 1.2.*
+    , http-types
     , conduit        >= 0.1   && < 0.3
