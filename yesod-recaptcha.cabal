@@ -1,5 +1,5 @@
 Name:                yesod-recaptcha
-Version:             0.1
+Version:             0.1.1
 Synopsis:            Dead simple support for reCAPTCHA on Yesod applications.
 Homepage:            https://github.com/meteficha/yesod-recaptcha
 License:             BSD3
