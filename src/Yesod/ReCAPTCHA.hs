@@ -51,7 +51,7 @@ import qualified Yesod.Form.Types as YF
 class YA.YesodAuth master => YesodReCAPTCHA master where
     recaptchaPublicKey  :: YC.GHandler sub master T.Text
     recaptchaPrivateKey :: YC.GHandler sub master T.Text
-
+    recaptchaBackDoor   :: YC.GHandler sub master T.Text
 
 -- | A reCAPTCHA field.  This 'YF.AForm' returns @()@ because
 -- CAPTCHAs give no useful information besides having being typed
@@ -124,48 +124,52 @@ check :: YesodReCAPTCHA master =>
 check "" _ = return $ Error "invalid-request-cookie"
 check _ "" = return $ Error "incorrect-captcha-sol"
 check challenge response = do
-  manager    <- YA.authHttpManager <$> YC.getYesod
-  privateKey <- recaptchaPrivateKey
-  sockaddr   <- W.remoteHost <$> YC.waiRequest
-  case sockaddr of
-    HS.SockAddrUnix _ -> do
-      $(YC.logError) $ "Yesod.ReCAPTCHA: Couldn't find out remote IP, \
-                       \are you using a reverse proxy?  If yes, then \
-                       \please file a bug report at \
-                       \<https://github.com/meteficha/yesod-recaptcha>."
-      fail "Could not find remote IP address for reCAPTCHA."
-    _ -> do
-      let remoteip = case sockaddr of
-                       HS.SockAddrInet _ hostAddr ->
-                         show $ NI.IPv4 hostAddr
-                       HS.SockAddrInet6 _ _ (w1, w2, w3, w4) _ ->
-                         show $ NI.IPv6 w1 w2 w3 w4
-                       HS.SockAddrUnix _ -> error "ReCAPTCHA.check"
-          req = H.def
-                  { H.method      = HT.methodPost
-                  , H.host        = "www.google.com"
-                  , H.path        = "/recaptcha/api/verify"
-                  , H.queryString = HT.renderSimpleQuery False query
-                  }
-          query = [ ("privatekey", TE.encodeUtf8 privateKey)
-                  , ("remoteip",   B8.pack       remoteip)
-                  , ("challenge",  TE.encodeUtf8 challenge)
-                  , ("response",   TE.encodeUtf8 response)
-                  ]
-      eresp <- E.try $ C.runResourceT $ H.httpLbs req manager
-      case (L8.lines . H.responseBody) <$> eresp of
-        Right ("true":_)      -> return Ok
-        Right ("false":why:_) -> return . Error . TL.toStrict $
-                                 TLE.decodeUtf8With TEE.lenientDecode why
-        Right other -> do
-          $(YC.logError) $ T.concat [ "Yesod.ReCAPTCHA: could not parse "
-                                    , T.pack (show other) ]
-          return (Error "recaptcha-not-reachable")
-        Left exc -> do
-          $(YC.logError) $ T.concat [ "Yesod.ReCAPTCHA: could not contact server ("
-                                    , T.pack (show (exc :: E.SomeException))
-                                    , ")" ]
-          return (Error "recaptcha-not-reachable")
+  backdoor   <- recaptchaBackDoor
+  if response == backdoor
+    then return Ok
+    else do
+      manager    <- YA.authHttpManager <$> YC.getYesod
+      privateKey <- recaptchaPrivateKey
+      sockaddr   <- W.remoteHost <$> YC.waiRequest
+      case sockaddr of
+        HS.SockAddrUnix _ -> do
+          $(YC.logError) $ "Yesod.ReCAPTCHA: Couldn't find out remote IP, \
+                           \are you using a reverse proxy?  If yes, then \
+                           \please file a bug report at \
+                           \<https://github.com/meteficha/yesod-recaptcha>."
+          fail "Could not find remote IP address for reCAPTCHA."
+        _ -> do
+          let remoteip = case sockaddr of
+                           HS.SockAddrInet _ hostAddr ->
+                             show $ NI.IPv4 hostAddr
+                           HS.SockAddrInet6 _ _ (w1, w2, w3, w4) _ ->
+                             show $ NI.IPv6 w1 w2 w3 w4
+                           HS.SockAddrUnix _ -> error "ReCAPTCHA.check"
+              req = H.def
+                      { H.method      = HT.methodPost
+                      , H.host        = "www.google.com"
+                      , H.path        = "/recaptcha/api/verify"
+                      , H.queryString = HT.renderSimpleQuery False query
+                      }
+              query = [ ("privatekey", TE.encodeUtf8 privateKey)
+                      , ("remoteip",   B8.pack       remoteip)
+                      , ("challenge",  TE.encodeUtf8 challenge)
+                      , ("response",   TE.encodeUtf8 response)
+                      ]
+          eresp <- E.try $ C.runResourceT $ H.httpLbs req manager
+          case (L8.lines . H.responseBody) <$> eresp of
+            Right ("true":_)      -> return Ok
+            Right ("false":why:_) -> return . Error . TL.toStrict $
+                                     TLE.decodeUtf8With TEE.lenientDecode why
+            Right other -> do
+              $(YC.logError) $ T.concat [ "Yesod.ReCAPTCHA: could not parse "
+                                        , T.pack (show other) ]
+              return (Error "recaptcha-not-reachable")
+            Left exc -> do
+              $(YC.logError) $ T.concat [ "Yesod.ReCAPTCHA: could not contact server ("
+                                        , T.pack (show (exc :: E.SomeException))
+                                        , ")" ]
+              return (Error "recaptcha-not-reachable")
 
 
 -- | See 'check'.
