@@ -48,10 +48,44 @@ import qualified Yesod.Form.Types as YF
 -- The 'YA.YesodAuth' superclass is used only for the HTTP
 -- request.  Please fill a bug report if you think that this
 -- @YesodReCAPTCHA@ may be useful without @YesodAuth@.
+--
+-- /Minimum complete definition:/ 'recaptchaPublicKey' and
+-- 'recaptchaPrivateKey'.
 class YA.YesodAuth master => YesodReCAPTCHA master where
+    -- | Your reCAPTCHA public key.
     recaptchaPublicKey  :: YC.GHandler sub master T.Text
+    -- | Your reCAPTCHA private key.
     recaptchaPrivateKey :: YC.GHandler sub master T.Text
-    recaptchaBackDoor   :: YC.GHandler sub master T.Text
+    -- | A backdoor to the reCAPTCHA mechanism.  While doing
+    -- automated tests you may need to fill a form that is
+    -- protected by a CAPTCHA.  The whole point of using a
+    -- CAPTCHA is disallowing access to non-humans, which
+    -- hopefully your test suite is.
+    --
+    -- In order to solve this problem, you may define
+    --
+    -- > insecureRecaptchaBackdoor = return (Just "<secret CAPTCHA>")
+    --
+    -- Now, whenever someone fills @\<secret CAPTCHA\>@ as the
+    -- CAPTCHA, the @yesod-recaptcha@ library will /not/ contact
+    -- reCAPTCHA's servers and instead will blindly accept the
+    -- secret CAPTCHA.
+    --
+    -- Note that this is a *huge* security hole in the wrong
+    -- hands.  We /do not/ recommend using this function on a
+    -- production environment without a good reason.  If for
+    -- whatever reason you must use this function on a production
+    -- environment, please make use of its access to 'GHandler'
+    -- in order to return @Just@ only when strictly necessary.
+    -- For example, you may return @Just@ only when the request
+    -- comes from @localhost@ and read its contents from a secret
+    -- file accessible only by SSH which is afterwards removed.
+    --
+    -- By default, this function returns @Nothing@, which
+    -- completely disables the backdoor.
+    insecureRecaptchaBackdoor :: YC.GHandler sub master (Maybe T.Text)
+    insecureRecaptchaBackdoor = return Nothing
+
 
 -- | A reCAPTCHA field.  This 'YF.AForm' returns @()@ because
 -- CAPTCHAs give no useful information besides having being typed
@@ -124,8 +158,8 @@ check :: YesodReCAPTCHA master =>
 check "" _ = return $ Error "invalid-request-cookie"
 check _ "" = return $ Error "incorrect-captcha-sol"
 check challenge response = do
-  backdoor   <- recaptchaBackDoor
-  if response == backdoor
+  backdoor <- insecureRecaptchaBackdoor
+  if Just response == backdoor
     then return Ok
     else do
       manager    <- YA.authHttpManager <$> YC.getYesod
