@@ -240,7 +240,6 @@ recaptchaOptions s =
         lang : '#{l}',
       x : 'x'
       };
-    </script>
   |]
 
 
