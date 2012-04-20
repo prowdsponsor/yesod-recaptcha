@@ -1,5 +1,5 @@
 Name:                yesod-recaptcha
-Version:             0.1.2
+Version:             1.0
 Synopsis:            Dead simple support for reCAPTCHA on Yesod applications.
 Homepage:            https://github.com/meteficha/yesod-recaptcha
 License:             BSD3
@@ -30,14 +30,14 @@ Library
       base           == 4.*
     , bytestring
     , text
-    , data-default   == 0.3.*
+    , data-default   == 0.4.*
     , lifted-base    == 0.1.*
-    , yesod-core     == 0.10.*
-    , yesod-auth     == 0.8.*
-    , yesod-form     == 0.4.*
+    , yesod-core     == 1.0.*
+    , yesod-auth     == 1.0.*
+    , yesod-form     == 1.0.*
     , wai
     , network
     , network-info   == 0.2.*
-    , http-conduit   == 1.2.*
+    , http-conduit   == 1.4.*
     , http-types
-    , conduit        >= 0.1   && < 0.3
+    , conduit        == 0.4.*
