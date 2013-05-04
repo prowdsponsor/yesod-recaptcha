@@ -8,7 +8,7 @@ module Yesod.ReCAPTCHA
 
 import Control.Applicative
 import Data.Typeable (Typeable)
-import Yesod.Widget (whamlet)
+import Yesod.Core (whamlet)
 import qualified Control.Exception.Lifted as E
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy.Char8 as L8
@@ -51,11 +51,11 @@ import qualified Yesod.Form.Types as YF
 --
 -- /Minimum complete definition:/ 'recaptchaPublicKey' and
 -- 'recaptchaPrivateKey'.
-class YA.YesodAuth master => YesodReCAPTCHA master where
+class YA.YesodAuth site => YesodReCAPTCHA site where
     -- | Your reCAPTCHA public key.
-    recaptchaPublicKey  :: YC.GHandler sub master T.Text
+    recaptchaPublicKey  :: YC.HandlerT site IO T.Text
     -- | Your reCAPTCHA private key.
-    recaptchaPrivateKey :: YC.GHandler sub master T.Text
+    recaptchaPrivateKey :: YC.HandlerT site IO T.Text
     -- | A backdoor to the reCAPTCHA mechanism.  While doing
     -- automated tests you may need to fill a form that is
     -- protected by a CAPTCHA.  The whole point of using a
@@ -83,7 +83,7 @@ class YA.YesodAuth master => YesodReCAPTCHA master where
     --
     -- By default, this function returns @Nothing@, which
     -- completely disables the backdoor.
-    insecureRecaptchaBackdoor :: YC.GHandler sub master (Maybe T.Text)
+    insecureRecaptchaBackdoor :: YC.HandlerT site IO (Maybe T.Text)
     insecureRecaptchaBackdoor = return Nothing
 
 
@@ -93,15 +93,16 @@ class YA.YesodAuth master => YesodReCAPTCHA master where
 -- correctly, this 'YF.AForm' will automatically fail in the same
 -- way as any other @yesod-form@ widget fails, so you may just
 -- ignore the @()@ value.
-recaptchaAForm :: YesodReCAPTCHA master => YF.AForm sub master ()
+recaptchaAForm :: YesodReCAPTCHA site => YF.AForm (YC.HandlerT site IO) ()
 recaptchaAForm = YF.formToAForm recaptchaMForm
 
 
 -- | Same as 'recaptchaAForm', but instead of being an
 -- 'YF.AForm', it's an 'YF.MForm'.
-recaptchaMForm :: YesodReCAPTCHA master =>
-                  YF.MForm sub master ( YF.FormResult ()
-                                      , [YF.FieldView sub master] )
+recaptchaMForm :: YesodReCAPTCHA site =>
+                  YF.MForm (YC.HandlerT site IO)
+                           ( YF.FormResult ()
+                           , [YF.FieldView site] )
 recaptchaMForm = do
   challengeField <- fakeField "recaptcha_challenge_field"
   responseField  <- fakeField "recaptcha_response_field"
@@ -127,12 +128,12 @@ recaptchaMForm = do
 
 
 -- | Widget with reCAPTCHA's HTML.
-recaptchaWidget :: YesodReCAPTCHA master =>
+recaptchaWidget :: YesodReCAPTCHA site =>
                    Maybe T.Text -- ^ Error code, if any.
-                -> YC.GWidget sub master ()
+                -> YC.WidgetT site IO ()
 recaptchaWidget merr = do
-  publicKey <- YC.lift recaptchaPublicKey
-  isSecure  <- W.isSecure <$> YC.lift YC.waiRequest
+  publicKey <- YC.handlerToWidget recaptchaPublicKey
+  isSecure  <- W.isSecure <$> YC.waiRequest
   let proto | isSecure  = "https"
             | otherwise = "http" :: T.Text
       err = maybe "" (T.append "&error=") merr
@@ -151,10 +152,10 @@ recaptchaWidget merr = do
 -- guessed the CAPTCHA.  Unfortunately, reCAPTCHA doesn't seem to
 -- provide an HTTPS endpoint for this API even though we need to
 -- send our private key.
-check :: YesodReCAPTCHA master =>
+check :: YesodReCAPTCHA site =>
          T.Text -- ^ @recaptcha_challenge_field@
       -> T.Text -- ^ @recaptcha_response_field@
-      -> YC.GHandler sub master CheckRet
+      -> YC.HandlerT site IO CheckRet
 check "" _ = return $ Error "invalid-request-cookie"
 check _ "" = return $ Error "incorrect-captcha-sol"
 check challenge response = do
@@ -211,9 +212,9 @@ data CheckRet = Ok | Error T.Text
 
 
 -- | A fake field.  Just returns the value of a field.
-fakeField :: (YC.RenderMessage master YF.FormMessage) =>
+fakeField :: (YC.RenderMessage site YF.FormMessage) =>
              T.Text -- ^ Field id.
-          -> YF.MForm sub master (Maybe T.Text)
+          -> YF.MForm (YC.HandlerT site IO) (Maybe T.Text)
 fakeField fid = YC.lift $ do mt1 <- YC.lookupGetParam fid
                              case mt1 of
                                Nothing -> YC.lookupPostParam fid
@@ -226,9 +227,9 @@ fakeField fid = YC.lift $ do mt1 <- YC.lookupGetParam fid
 --
 -- Note that this is /not/ required to use 'recaptchaAForm' or
 -- 'recaptchaMForm'.
-recaptchaOptions :: YC.Yesod master =>
+recaptchaOptions :: YC.Yesod site =>
                     RecaptchaOptions
-                 -> YC.GWidget sub master ()
+                 -> YC.WidgetT site IO ()
 recaptchaOptions s | s == D.def = return ()
 recaptchaOptions s =
   [whamlet|
