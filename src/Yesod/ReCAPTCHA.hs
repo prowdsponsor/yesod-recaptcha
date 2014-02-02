@@ -29,6 +29,7 @@ import qualified Yesod.Core as YC
 import qualified Yesod.Form.Fields as YF
 import qualified Yesod.Form.Functions as YF
 import qualified Yesod.Form.Types as YF
+import qualified Web.Cookie as W
 
 
 -- | Class used by @yesod-recaptcha@'s fields.  It should be
@@ -180,7 +181,7 @@ check challenge response = do
                            HS.SockAddrInet6 _ _ (w1, w2, w3, w4) _ ->
                              show $ NI.IPv6 w1 w2 w3 w4
                            HS.SockAddrUnix _ -> error "ReCAPTCHA.check"
-              req = H.def
+              req = W.def
                       { H.method      = HT.methodPost
                       , H.host        = "www.google.com"
                       , H.path        = "/recaptcha/api/verify"
