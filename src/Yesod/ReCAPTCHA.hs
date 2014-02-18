@@ -180,7 +180,7 @@ check challenge response = do
                            HS.SockAddrInet6 _ _ (w1, w2, w3, w4) _ ->
                              show $ NI.IPv6 w1 w2 w3 w4
                            HS.SockAddrUnix _ -> error "ReCAPTCHA.check"
-              req = H.def
+              req = D.def
                       { H.method      = HT.methodPost
                       , H.host        = "www.google.com"
                       , H.path        = "/recaptcha/api/verify"
