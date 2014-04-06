@@ -33,11 +33,11 @@ Library
     , data-default
     , lifted-base    >= 0.1
     , yesod-core     == 1.2.*
-    , yesod-auth     == 1.2.*
+    , yesod-auth     >= 1.2   && < 1.4
     , yesod-form     == 1.3.*
     , wai
     , network
     , network-info   == 0.2.*
     , http-conduit   >= 1.5
     , http-types
-    , conduit        >= 0.5   && < 1.1
+    , resourcet

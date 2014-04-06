@@ -10,9 +10,9 @@ import Control.Applicative
 import Data.Typeable (Typeable)
 import Yesod.Core (whamlet)
 import qualified Control.Exception.Lifted as E
+import qualified Control.Monad.Trans.Resource as R
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy.Char8 as L8
-import qualified Data.Conduit as C
 import qualified Data.Default as D
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
@@ -191,7 +191,7 @@ check challenge response = do
                       , ("challenge",  TE.encodeUtf8 challenge)
                       , ("response",   TE.encodeUtf8 response)
                       ]
-          eresp <- E.try $ C.runResourceT $ H.httpLbs req manager
+          eresp <- E.try $ R.runResourceT $ H.httpLbs req manager
           case (L8.lines . H.responseBody) <$> eresp of
             Right ("true":_)      -> return Ok
             Right ("false":why:_) -> return . Error . TL.toStrict $
