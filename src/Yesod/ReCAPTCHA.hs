@@ -170,9 +170,12 @@ check challenge response = do
 #ifndef WINDOWS
         HS.SockAddrUnix _ -> do
           $(YC.logError) $ "Yesod.ReCAPTCHA: Couldn't find out remote IP, \
-                           \are you using a reverse proxy?  If yes, then \
-                           \please file a bug report at \
-                           \<https://github.com/meteficha/yesod-recaptcha>."
+                           \
+                            are you using a reverse proxy?  If yes, then \
+                           \
+                            please file a bug report at \
+                           \
+                            <https://github.com/meteficha/yesod-recaptcha>."
           fail "Could not find remote IP address for reCAPTCHA."
 #endif
         _ -> do
