@@ -1,5 +1,5 @@
 Name:                yesod-recaptcha
-Version:             1.2.3
+Version:             1.2.3.1
 Synopsis:            Dead simple support for reCAPTCHA on Yesod applications.
 Homepage:            https://github.com/prowdsponsor/yesod-recaptcha
 License:             BSD3
@@ -25,7 +25,7 @@ Library
   GHC-options: -Wall
   Exposed-modules: Yesod.ReCAPTCHA
   Extensions: DeriveDataTypeable FlexibleContexts TemplateHaskell
-              QuasiQuotes OverloadedStrings
+              QuasiQuotes OverloadedStrings CPP
   Build-depends:
       base           == 4.*
     , bytestring
@@ -41,3 +41,5 @@ Library
     , http-conduit   >= 1.5
     , http-types
     , resourcet
+  if os(windows)
+    Cpp-options: -DWINDOWS
