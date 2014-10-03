@@ -166,16 +166,18 @@ check challenge response = do
       manager    <- YA.authHttpManager <$> YC.getYesod
       privateKey <- recaptchaPrivateKey
       sockaddr   <- W.remoteHost <$> YC.waiRequest
-      let remoteip = case sockaddr of
+      remoteip <- case sockaddr of
                        HS.SockAddrInet _ hostAddr ->
-                         show $ NI.IPv4 hostAddr
+                         return . show $ NI.IPv4 hostAddr
                        HS.SockAddrInet6 _ _ (w1, w2, w3, w4) _ ->
-                         show $ NI.IPv6 w1 w2 w3 w4
-                       _ -> error "Yesod.ReCAPTCHA: Couldn't find out remote IP, \
-                                  \are you using a reverse proxy?  If yes, then \
-                                  \please file a bug report at \
-                                  \<https://github.com/meteficha/yesod-recaptcha>."
-          req = D.def
+                         return . show $ NI.IPv6 w1 w2 w3 w4
+                       _ -> do
+                          $(YC.logError) $ "Yesod.ReCAPTCHA: Couldn't find out remote IP, \
+                           \are you using a reverse proxy?  If yes, then \
+                           \please file a bug report at \
+                           \<https://github.com/meteficha/yesod-recaptcha>."
+                          fail "Could not find remote IP address for reCAPTCHA."
+      let req = D.def
                   { H.method      = HT.methodPost
                   , H.host        = "www.google.com"
                   , H.path        = "/recaptcha/api/verify"
