@@ -262,4 +262,3 @@ data RecaptchaOptions =
 -- | Allows you to use 'D.def' and get sane default values.
 instance D.Default RecaptchaOptions where
     def = RecaptchaOptions Nothing Nothing
-    
