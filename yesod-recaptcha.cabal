@@ -41,3 +41,4 @@ Library
     , http-conduit   >= 1.5
     , http-types
     , resourcet
+    
