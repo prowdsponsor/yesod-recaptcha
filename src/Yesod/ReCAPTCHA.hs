@@ -4,6 +4,8 @@ module Yesod.ReCAPTCHA
     , recaptchaMForm
     , recaptchaOptions
     , RecaptchaOptions(..)
+    , recaptchaCheck
+    , RecaptchaCheckRet(..)
     ) where
 
 import Control.Applicative
@@ -107,15 +109,15 @@ recaptchaMForm = do
   challengeField <- fakeField "recaptcha_challenge_field"
   responseField  <- fakeField "recaptcha_response_field"
   ret <- maybe (return Nothing)
-               (YC.lift . fmap Just . uncurry check)
+               (YC.lift . fmap Just . uncurry recaptchaCheck)
                ((,) <$> challengeField <*> responseField)
   let view = recaptchaWidget $ case ret of
-                                 Just (Error err) -> Just err
+                                 Just (RecaptchaError err) -> Just err
                                  _                -> Nothing
       formRet = case ret of
                   Nothing        -> YF.FormMissing
-                  Just Ok        -> YF.FormSuccess ()
-                  Just (Error _) -> YF.FormFailure []
+                  Just RecaptchaOk        -> YF.FormSuccess ()
+                  Just (RecaptchaError _) -> YF.FormFailure []
       formView = YF.FieldView
                    { YF.fvLabel    = ""
                    , YF.fvTooltip  = Nothing
@@ -152,16 +154,16 @@ recaptchaWidget merr = do
 -- guessed the CAPTCHA.  Unfortunately, reCAPTCHA doesn't seem to
 -- provide an HTTPS endpoint for this API even though we need to
 -- send our private key.
-check :: YesodReCAPTCHA site =>
+recaptchaCheck :: YesodReCAPTCHA site =>
          T.Text -- ^ @recaptcha_challenge_field@
       -> T.Text -- ^ @recaptcha_response_field@
-      -> YC.HandlerT site IO CheckRet
-check "" _ = return $ Error "invalid-request-cookie"
-check _ "" = return $ Error "incorrect-captcha-sol"
-check challenge response = do
+      -> YC.HandlerT site IO RecaptchaCheckRet
+recaptchaCheck "" _ = return $ RecaptchaError "invalid-request-cookie"
+recaptchaCheck _ "" = return $ RecaptchaError "incorrect-captcha-sol"
+recaptchaCheck challenge response = do
   backdoor <- insecureRecaptchaBackdoor
   if Just response == backdoor
-    then return Ok
+    then return RecaptchaOk
     else do
       manager    <- YA.authHttpManager <$> YC.getYesod
       privateKey <- recaptchaPrivateKey
@@ -190,22 +192,22 @@ check challenge response = do
                   ]
       eresp <- E.try $ R.runResourceT $ H.httpLbs req manager
       case (L8.lines . H.responseBody) <$> eresp of
-        Right ("true":_)      -> return Ok
-        Right ("false":why:_) -> return . Error . TL.toStrict $
+        Right ("true":_)      -> return RecaptchaOk
+        Right ("false":why:_) -> return . RecaptchaError . TL.toStrict $
                                  TLE.decodeUtf8With TEE.lenientDecode why
         Right other -> do
           $(YC.logError) $ T.concat [ "Yesod.ReCAPTCHA: could not parse "
                                     , T.pack (show other) ]
-          return (Error "recaptcha-not-reachable")
+          return (RecaptchaError "recaptcha-not-reachable")
         Left exc -> do
           $(YC.logError) $ T.concat [ "Yesod.ReCAPTCHA: could not contact server ("
                                     , T.pack (show (exc :: E.SomeException))
                                     , ")" ]
-          return (Error "recaptcha-not-reachable")
+          return (RecaptchaError "recaptcha-not-reachable")
 
 
--- | See 'check'.
-data CheckRet = Ok | Error T.Text
+-- | See 'recaptchaCheck'.
+data RecaptchaCheckRet = RecaptchaOk | RecaptchaError T.Text
 
 
 -- | A fake field.  Just returns the value of a field.
