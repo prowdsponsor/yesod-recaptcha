@@ -175,7 +175,7 @@ check challenge response = do
                           $(YC.logError) $ "Yesod.ReCAPTCHA: Couldn't find out remote IP, \
                            \are you using a reverse proxy?  If yes, then \
                            \please file a bug report at \
-                           \<https://github.com/meteficha/yesod-recaptcha>."
+                           \<https://github.com/prowdsponsor/yesod-recaptcha>."
                           fail "Could not find remote IP address for reCAPTCHA."
       let req = D.def
                   { H.method      = HT.methodPost
